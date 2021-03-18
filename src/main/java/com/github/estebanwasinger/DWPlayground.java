@@ -43,9 +43,11 @@ import java.util.ArrayList;
 import java.util.function.Supplier;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
+import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -96,7 +98,7 @@ public class DWPlayground extends Application {
         MuleServiceLevelModuleManager muleServiceLevelModuleManager = new MuleServiceLevelModuleManager();
         Scheduler immediateScheduler = IMMEDIATE_SCHEDULER;
         CharsetProviderService charsetProviderService = DefaultCharsetProviderService$.MODULE$;
-        weaveEngine = new WeaveExpressionLanguage(IMMEDIATE_SCHEDULER, charsetProviderService, muleServiceLevelModuleManager);
+        weaveEngine = new WeaveExpressionLanguage(immediateScheduler, charsetProviderService, muleServiceLevelModuleManager);
 
         SplitPane splitPane = new SplitPane();
         AnchorPane inputPane = new AnchorPane();
@@ -148,7 +150,7 @@ public class DWPlayground extends Application {
             evaluateAndUpdateUI(inputText, transformationText, outputTextArea, titledPane, comboBox.getValue());
             return null;
         }, 300);
-        EventHandler evaluateAndUpdateUIAction = event -> {
+        EventHandler<Event> evaluateAndUpdateUIAction = event -> {
             if (event instanceof KeyEvent) {
                 KeyEvent event1 = (KeyEvent) event;
                 int caretPosition = transformationText.getCaretPosition();
@@ -185,7 +187,7 @@ public class DWPlayground extends Application {
         };
         transformationText.setOnKeyTyped(evaluateAndUpdateUIAction);
         inputText.setOnKeyReleased(evaluateAndUpdateUIAction);
-        comboBox.setOnAction(evaluateAndUpdateUIAction);
+//        comboBox.setOnAction(evaluateAndUpdateUIAction);
 
 
         initUI(inputText, comboBox, transformationText, outputTextArea, titledPane);
@@ -291,7 +293,7 @@ public class DWPlayground extends Application {
             inputs.add(new InputModel(inputText.getText(), comboBox.getValue()));
             playgroundModel.setInputs(inputs);
 
-            TypedValue playGround = new TypedValue<>(playgroundModel, PLAYGROUND_MODEL_DATA_TYPE);
+            TypedValue<PlaygroundModel> playGround = new TypedValue<>(playgroundModel, PLAYGROUND_MODEL_DATA_TYPE);
             BindingContext payload = new DefaultBindingContextBuilder()
                     .addBinding(PAYLOAD, playGround).build();
             TypedValue<?> evaluate = weaveEngine.evaluate(BASE_TRANS, payload);
@@ -306,15 +308,15 @@ public class DWPlayground extends Application {
     }
 
     private void evaluateAndUpdateUI(TextArea inputText, TextArea transformationText, TextArea outputTextArea, TitledPane titledPane, String mimeType) {
-        TypedValue inputTypedValue = new TypedValue<>(inputText.getText(), getInputDataType(mimeType));
+        TypedValue<String> inputTypedValue = new TypedValue<>(inputText.getText(), getInputDataType(mimeType));
 
         BindingContext bindingContext = new DefaultBindingContextBuilder()
                 .addBinding(PAYLOAD, inputTypedValue)
                 .build();
         try {
             TypedValue<?> evaluate = weaveEngine.evaluate(transformationText.getText(), bindingContext);
-            outputTextArea.setText(getTypedValueStringValue(evaluate));
-            titledPane.setText("Transformation Output - Type: " + evaluate.getDataType().getMediaType());
+            Platform.runLater(() -> outputTextArea.setText(getTypedValueStringValue(evaluate)));
+            Platform.runLater(() -> titledPane.setText("Transformation Output - Type: " + evaluate.getDataType().getMediaType()));
         } catch (Exception e) {
             outputTextArea.setText(e.getMessage());
         }
